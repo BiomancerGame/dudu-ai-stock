@@ -1,9 +1,10 @@
-"""
+﻿"""
 智瞰龙虎数据库模块
 用于存储龙虎榜历史数据和分析报告
 """
 
 import sqlite3
+from db.base import legacy_connect
 from datetime import datetime
 import json
 import pandas as pd
@@ -29,7 +30,7 @@ class LonghubangDatabase:
     
     def get_connection(self):
         """获取数据库连接"""
-        return sqlite3.connect(self.db_path)
+        return legacy_connect(self.db_path)
     
     def init_database(self):
         """初始化数据库表"""

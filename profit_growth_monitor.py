@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 净利增长策略监控数据库管理模块
@@ -6,6 +6,7 @@
 """
 
 import sqlite3
+from db.base import legacy_connect
 import logging
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
@@ -29,7 +30,7 @@ class ProfitGrowthMonitor:
     def _init_database(self):
         """初始化数据库表结构"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 创建监控股票表
@@ -94,7 +95,7 @@ class ProfitGrowthMonitor:
             
             add_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 检查是否已存在
@@ -127,7 +128,7 @@ class ProfitGrowthMonitor:
     def get_monitoring_stocks(self) -> List[Dict]:
         """获取所有监控中的股票"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
@@ -149,7 +150,7 @@ class ProfitGrowthMonitor:
     def update_holding_days(self, stock_code: str, days: int) -> bool:
         """更新持股天数"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -174,7 +175,7 @@ class ProfitGrowthMonitor:
         try:
             alert_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -198,7 +199,7 @@ class ProfitGrowthMonitor:
     def get_unprocessed_alerts(self) -> List[Dict]:
         """获取未处理的卖出提醒"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
@@ -220,7 +221,7 @@ class ProfitGrowthMonitor:
     def get_all_alerts(self, limit: int = 50) -> List[Dict]:
         """获取所有卖出提醒历史"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
@@ -242,7 +243,7 @@ class ProfitGrowthMonitor:
     def remove_stock(self, stock_code: str, reason: str = "手动移除") -> Tuple[bool, str]:
         """从监控列表移除股票"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 先检查是否存在持仓中的股票
@@ -282,7 +283,7 @@ class ProfitGrowthMonitor:
     def get_removed_stocks(self, limit: int = 50) -> List[Dict]:
         """获取已移除的股票历史"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             

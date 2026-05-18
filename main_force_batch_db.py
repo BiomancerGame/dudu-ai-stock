@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 主力选股批量分析历史记录数据库模块
 """
 
 import sqlite3
+from db.base import legacy_connect
 import json
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -20,7 +21,7 @@ class MainForceBatchDatabase:
     
     def _init_database(self):
         """初始化数据库表结构"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         # 批量分析历史记录表
@@ -124,7 +125,7 @@ class MainForceBatchDatabase:
         Returns:
             记录ID
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         analysis_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -155,7 +156,7 @@ class MainForceBatchDatabase:
         Returns:
             历史记录列表
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -200,7 +201,7 @@ class MainForceBatchDatabase:
         Returns:
             记录详情
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -243,7 +244,7 @@ class MainForceBatchDatabase:
         Returns:
             是否删除成功
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('DELETE FROM batch_analysis_history WHERE id = ?', (record_id,))
@@ -261,7 +262,7 @@ class MainForceBatchDatabase:
         Returns:
             统计数据
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         # 总记录数

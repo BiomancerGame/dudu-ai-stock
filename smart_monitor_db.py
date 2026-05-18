@@ -1,9 +1,10 @@
-"""
+﻿"""
 智能盯盘 - 数据库模块
 记录AI决策、交易记录、监控配置等
 """
 
 import sqlite3
+from db.base import legacy_connect
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -26,7 +27,7 @@ class SmartMonitorDB:
     
     def _init_database(self):
         """初始化数据库表结构"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         # 1. 监控任务表
@@ -187,7 +188,7 @@ class SmartMonitorDB:
     
     def add_monitor_task(self, task_data: Dict) -> int:
         """添加监控任务"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -227,7 +228,7 @@ class SmartMonitorDB:
     
     def get_monitor_tasks(self, enabled_only: bool = True) -> List[Dict]:
         """获取监控任务列表"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -243,7 +244,7 @@ class SmartMonitorDB:
     
     def update_monitor_task(self, task_id: int, updates: Dict):
         """更新监控任务"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
@@ -260,7 +261,7 @@ class SmartMonitorDB:
     
     def update_monitor_task(self, stock_code: str, task_data: Dict):
         """更新监控任务"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         # 构建更新语句
@@ -323,7 +324,7 @@ class SmartMonitorDB:
     
     def delete_monitor_task(self, task_id: int):
         """删除监控任务"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('DELETE FROM monitor_tasks WHERE id = ?', (task_id,))
@@ -335,7 +336,7 @@ class SmartMonitorDB:
     
     def save_ai_decision(self, decision_data: Dict) -> int:
         """保存AI决策"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -370,7 +371,7 @@ class SmartMonitorDB:
     
     def get_ai_decisions(self, stock_code: str = None, limit: int = 100) -> List[Dict]:
         """获取AI决策历史"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -404,7 +405,7 @@ class SmartMonitorDB:
     
     def update_decision_execution(self, decision_id: int, executed: bool, result: str):
         """更新决策执行状态"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -420,7 +421,7 @@ class SmartMonitorDB:
     
     def save_trade_record(self, trade_data: Dict) -> int:
         """保存交易记录"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -453,7 +454,7 @@ class SmartMonitorDB:
     
     def get_trade_records(self, stock_code: str = None, limit: int = 100) -> List[Dict]:
         """获取交易记录"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -480,7 +481,7 @@ class SmartMonitorDB:
     
     def save_position(self, position_data: Dict):
         """保存/更新持仓信息"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         # 检查是否已存在
@@ -539,7 +540,7 @@ class SmartMonitorDB:
     
     def get_positions(self) -> List[Dict]:
         """获取所有持仓"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -552,7 +553,7 @@ class SmartMonitorDB:
     
     def close_position(self, stock_code: str):
         """关闭持仓记录"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -568,7 +569,7 @@ class SmartMonitorDB:
     
     def save_notification(self, notify_data: Dict) -> int:
         """保存通知记录"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -592,7 +593,7 @@ class SmartMonitorDB:
     
     def update_notification_status(self, notify_id: int, status: str, error_msg: str = None):
         """更新通知状态"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -608,7 +609,7 @@ class SmartMonitorDB:
     
     def log_system_event(self, level: str, module: str, message: str, details: str = None):
         """记录系统日志"""
-        conn = sqlite3.connect(self.db_file)
+        conn = legacy_connect(self.db_file)
         cursor = conn.cursor()
         
         cursor.execute('''

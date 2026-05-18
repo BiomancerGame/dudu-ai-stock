@@ -1,4 +1,5 @@
-import sqlite3
+﻿import sqlite3
+from db.base import legacy_connect
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -17,7 +18,7 @@ class StockMonitorDatabase:
     
     def init_database(self):
         """初始化数据库表结构"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         # 创建监测股票表
@@ -84,7 +85,7 @@ class StockMonitorDatabase:
                            quant_enabled: bool = False,
                            quant_config: Dict = None) -> int:
         """添加监测股票"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         quant_config_json = json.dumps(quant_config) if quant_config else None
@@ -105,7 +106,7 @@ class StockMonitorDatabase:
     
     def get_monitored_stocks(self) -> List[Dict]:
         """获取所有监测股票"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -150,7 +151,7 @@ class StockMonitorDatabase:
     
     def update_stock_price(self, stock_id: int, price: float):
         """更新股票价格"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         # 更新当前价格
@@ -171,7 +172,7 @@ class StockMonitorDatabase:
     
     def update_last_checked(self, stock_id: int):
         """仅更新最后检查时间（用于获取失败的情况）"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -185,7 +186,7 @@ class StockMonitorDatabase:
     
     def has_recent_notification(self, stock_id: int, notification_type: str, minutes: int = 60) -> bool:
         """检查是否在最近X分钟内已有相同类型的通知"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -201,7 +202,7 @@ class StockMonitorDatabase:
     
     def add_notification(self, stock_id: int, notification_type: str, message: str):
         """添加提醒记录"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -214,7 +215,7 @@ class StockMonitorDatabase:
     
     def get_pending_notifications(self) -> List[Dict]:
         """获取待发送的提醒"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -242,7 +243,7 @@ class StockMonitorDatabase:
     
     def get_all_recent_notifications(self, limit: int = 10) -> List[Dict]:
         """获取最近的所有通知（包括已发送和未发送的）"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -271,7 +272,7 @@ class StockMonitorDatabase:
     
     def mark_notification_sent(self, notification_id: int):
         """标记提醒已发送"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -283,7 +284,7 @@ class StockMonitorDatabase:
     
     def mark_all_notifications_sent(self):
         """标记所有通知为已读"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('UPDATE notifications SET sent = TRUE WHERE sent = FALSE')
@@ -295,7 +296,7 @@ class StockMonitorDatabase:
     
     def clear_all_notifications(self):
         """清空所有通知"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('DELETE FROM notifications')
@@ -308,7 +309,7 @@ class StockMonitorDatabase:
     def remove_monitored_stock(self, stock_id: int):
         """移除监测股票"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 删除相关记录
@@ -332,7 +333,7 @@ class StockMonitorDatabase:
                               quant_enabled: bool = None,
                               quant_config: Dict = None):
         """更新监测股票"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         if quant_enabled is not None and quant_config is not None:
@@ -374,7 +375,7 @@ class StockMonitorDatabase:
     
     def toggle_notification(self, stock_id: int, enabled: bool):
         """切换通知状态"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -390,7 +391,7 @@ class StockMonitorDatabase:
     
     def get_stock_by_id(self, stock_id: int) -> Optional[Dict]:
         """根据ID获取股票信息"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -440,7 +441,7 @@ class StockMonitorDatabase:
         Returns:
             监测股票信息字典，不存在则返回None
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''

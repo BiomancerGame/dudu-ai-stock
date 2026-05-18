@@ -1,9 +1,10 @@
-"""
+﻿"""
 新闻流量数据库模块
 用于存储和管理新闻流量监测数据
 包含：快照、新闻、情绪、预警、AI分析、定时任务日志
 """
 import sqlite3
+from db.base import legacy_connect
 import json
 import logging
 from datetime import datetime, timedelta
@@ -23,7 +24,7 @@ class NewsFlowDatabase:
     
     def get_connection(self):
         """获取数据库连接"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
     

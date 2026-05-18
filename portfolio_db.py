@@ -1,10 +1,11 @@
-"""
+﻿"""
 持仓股票数据库管理模块
 
 提供持仓股票和分析历史的数据库操作接口
 """
 
 import sqlite3
+from db.base import legacy_connect
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import os
@@ -28,7 +29,7 @@ class PortfolioDB:
     
     def _get_connection(self) -> sqlite3.Connection:
         """获取数据库连接"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         conn.row_factory = sqlite3.Row  # 使查询结果可以通过列名访问
         return conn
     

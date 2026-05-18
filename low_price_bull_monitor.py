@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 低价擒牛策略监控模块
@@ -6,6 +6,7 @@
 """
 
 import sqlite3
+from db.base import legacy_connect
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -29,7 +30,7 @@ class LowPriceBullMonitor:
     
     def _init_database(self):
         """初始化数据库"""
-        conn = sqlite3.connect(self.db_path)
+        conn = legacy_connect(self.db_path)
         cursor = conn.cursor()
         
         # 创建监控列表表
@@ -89,7 +90,7 @@ class LowPriceBullMonitor:
             if buy_date is None:
                 buy_date = datetime.now().strftime("%Y-%m-%d")
             
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 检查是否已存在
@@ -132,7 +133,7 @@ class LowPriceBullMonitor:
             (是否成功, 消息)
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 先检查是否存在持仓中的股票
@@ -178,7 +179,7 @@ class LowPriceBullMonitor:
             股票列表
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             df = pd.read_sql_query("""
                 SELECT * FROM monitored_stocks 
                 WHERE status = 'holding'
@@ -195,7 +196,7 @@ class LowPriceBullMonitor:
     def update_holding_days(self):
         """更新所有股票的持有天数"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 获取所有持仓股票
@@ -246,7 +247,7 @@ class LowPriceBullMonitor:
             是否成功
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             # 检查是否已存在相同的提醒
@@ -286,7 +287,7 @@ class LowPriceBullMonitor:
             提醒列表
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             df = pd.read_sql_query("""
                 SELECT * FROM sell_alerts 
                 WHERE is_sent = 0
@@ -303,7 +304,7 @@ class LowPriceBullMonitor:
     def mark_alert_sent(self, alert_id: int):
         """标记提醒已发送"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             cursor.execute("""
@@ -329,7 +330,7 @@ class LowPriceBullMonitor:
             提醒列表
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             df = pd.read_sql_query(f"""
                 SELECT * FROM sell_alerts 
                 ORDER BY alert_time DESC
@@ -351,7 +352,7 @@ class LowPriceBullMonitor:
             days: 保留天数
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = legacy_connect(self.db_path)
             cursor = conn.cursor()
             
             cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")

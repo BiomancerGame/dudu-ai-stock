@@ -78,6 +78,22 @@ def run_migrations(db_path: str, migrations: Sequence[str]) -> None:
         raise DatabaseError(f"迁移失败 {db_path}: {e}") from e
 
 
+def legacy_connect(db_path: str, *, timeout: float = 30.0) -> sqlite3.Connection:
+    """旧代码迁移用:返回已应用 WAL/外键/同步级别的原生连接。
+
+    用途:把 ``sqlite3.connect(path)`` 直接替换为 ``legacy_connect(path)``,
+    业务代码无需变动即可获得性能与一致性提升。
+    """
+    _ensure_dir(db_path)
+    conn = sqlite3.connect(db_path, timeout=timeout)
+    for pragma in _PRAGMAS:
+        try:
+            conn.execute(pragma)
+        except sqlite3.Error as e:
+            logger.debug("pragma %s 失败: %s", pragma, e)
+    return conn
+
+
 def fetch_all(db_path: str, sql: str, params: Iterable = ()) -> list[sqlite3.Row]:
     with get_conn(db_path) as conn:
         return list(conn.execute(sql, tuple(params)))
