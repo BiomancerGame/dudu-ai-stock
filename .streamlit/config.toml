@@ -1,5 +1,15 @@
 [theme]
 base = "light"
+primaryColor = "#213A5C"
+backgroundColor = "#F7F5EF"
+secondaryBackgroundColor = "#FFFDF8"
+textColor = "#172033"
+
+[theme.sidebar]
+primaryColor = "#B88736"
+backgroundColor = "#111827"
+secondaryBackgroundColor = "#1F2937"
+textColor = "#F9FAFB"
 
 [server]
 port = 8503

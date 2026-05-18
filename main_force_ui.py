@@ -9,7 +9,68 @@ from datetime import datetime, timedelta
 from main_force_analysis import MainForceAnalyzer
 from main_force_pdf_generator import display_report_download_section
 from main_force_history_ui import display_batch_history
+from privacy_utils import (
+    is_mask_stock_identity_enabled,
+    mask_dataframe_stock_identity,
+    mask_stock_code,
+    mask_stock_name,
+)
 import pandas as pd
+
+
+def create_main_force_process_panel():
+    st.markdown("### 🧭 主力选股分析过程")
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    log_box = st.empty()
+    logs = []
+
+    def update(message, percent=None):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        logs.append(f"{timestamp} {message}")
+        if percent is not None:
+            progress_bar.progress(max(0, min(int(percent), 100)))
+        status_text.info(message)
+        with log_box.container():
+            with st.expander("查看实时分析过程", expanded=True):
+                st.markdown("\n".join(f"- {line}" for line in logs[-14:]))
+
+    return progress_bar, status_text, update
+
+
+def get_pattern_display(stock_data: dict, scores: dict) -> tuple:
+    """统一形态分、等级、标签展示，避免推荐分与明细字段矛盾。"""
+    raw_score = scores.get('technical_pattern', stock_data.get('形态评分', 0))
+    try:
+        score = max(0, min(100, int(float(raw_score))))
+    except Exception:
+        score = 0
+
+    raw_level = stock_data.get('形态等级')
+    raw_tags = stock_data.get('形态标签')
+
+    if score >= 85:
+        level = "强势形态"
+        fallback_tags = "平台突破、量价配合、趋势确认"
+    elif score >= 70:
+        level = "形态良好"
+        fallback_tags = "趋势向上、资金配合"
+    elif score >= 55:
+        level = "形态一般"
+        fallback_tags = "有一定形态信号"
+    elif score > 0:
+        level = "弱信号"
+        fallback_tags = "形态信号偏弱"
+    else:
+        level = raw_level or "无数据"
+        fallback_tags = raw_tags or "无明显形态"
+
+    if raw_level and raw_level not in ["无数据", "无明显形态"] and score < 85:
+        level = raw_level
+
+    tags = raw_tags if raw_tags and raw_tags not in ["无", "无明显形态"] else fallback_tags
+    return score, level, tags
+
 
 def display_main_force_selector():
     """显示主力选股界面"""
@@ -37,22 +98,160 @@ def display_main_force_selector():
     st.markdown("---")
 
     st.markdown("""
-    ### 功能说明
-    
-    本功能通过以下步骤筛选优质股票：
-    
-    1. **数据获取**: 使用问财获取指定日期以来主力资金净流入前100名股票
-    2. **智能筛选**: 过滤掉涨幅过高、市值不符的股票
-    3. **AI分析**: 调用资金流向、行业板块、财务基本面三大分析师团队
-    4. **综合决策**: 资深研究员综合评估，精选3-5只优质标的
-    
-    **筛选标准**:
-    - ✅ 主力资金净流入较多
-    - ✅ 区间涨跌幅适中（避免追高）
-    - ✅ 财务基本面良好
-    - ✅ 行业前景明朗
-    - ✅ 综合素质优秀
-    """)
+    <style>
+        .main-force-result-card {
+            background: #fffdf8;
+            border: 1px solid #e6dccb;
+            border-radius: 8px;
+            padding: 1rem 1.1rem;
+            margin: 0.5rem 0 1rem;
+            box-shadow: 0 3px 14px rgba(40, 32, 20, 0.06);
+        }
+        .main-force-score-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin: 0.7rem 0 1rem;
+        }
+        .main-force-score {
+            background: #f8f2e6;
+            border: 1px solid #e6d3ad;
+            border-radius: 8px;
+            padding: 0.65rem;
+            text-align: center;
+        }
+        .main-force-score strong {
+            display: block;
+            color: #14253f;
+            font-size: 1.25rem;
+            line-height: 1.2;
+        }
+        .main-force-score span {
+            color: #6f6a60;
+            font-size: 0.78rem;
+        }
+        .main-force-score.overall {
+            background: #213a5c;
+            border-color: #213a5c;
+        }
+        .main-force-score.overall strong,
+        .main-force-score.overall span {
+            color: #fffdf8;
+        }
+        .main-force-section {
+            background: #fbf7ee;
+            border: 1px solid #ebe4d6;
+            border-radius: 8px;
+            padding: 0.85rem 0.95rem;
+            min-height: 100%;
+        }
+        .main-force-section h4 {
+            margin: 0 0 0.55rem;
+            color: #172033;
+            font-size: 1rem;
+        }
+        .main-force-report {
+            background: #fffdf8;
+            border: 1px solid #ebe4d6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+        }
+        .main-force-report h3 {
+            margin-top: 0;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.25rem;
+            padding: 0.3rem;
+            background: #fffdf8;
+            border: 1px solid #ebe4d6;
+            border-radius: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            min-height: 40px;
+            padding: 0 1rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #f8edd7 !important;
+            color: #14253f !important;
+            border: 1px solid #d8b56f !important;
+        }
+        .main-force-logic {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.75rem 0 1rem;
+        }
+        .main-force-card {
+            background: #fffdf8;
+            border: 1px solid #ebe4d6;
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            min-height: 116px;
+            box-shadow: 0 2px 10px rgba(40, 32, 20, 0.05);
+        }
+        .main-force-card.primary {
+            background: linear-gradient(180deg, #fffdf8 0%, #f8edd7 100%);
+            border-left: 4px solid #b88736;
+        }
+        .main-force-card strong {
+            display: block;
+            color: #172033;
+            font-size: 0.96rem;
+            margin-bottom: 0.35rem;
+        }
+        .main-force-card span {
+            display: block;
+            color: #6f6a60;
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }
+        .main-force-note {
+            background: #fff7e8;
+            border: 1px solid #ead2a4;
+            border-left: 4px solid #b88736;
+            border-radius: 8px;
+            color: #57401d;
+            padding: 0.75rem 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        @media (max-width: 900px) {
+            .main-force-logic,
+            .main-force-score-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <div class="main-force-note">
+        <strong>选股逻辑：</strong>先找主力资金净流入明显的个股，再过滤过热和市值不合适的标的，
+        同时通过所属行业观察资金集中方向，最后由 AI 分析师团队综合精选。
+    </div>
+    <div class="main-force-logic">
+        <div class="main-force-card primary">
+            <strong>1. 资金入口</strong>
+            <span>使用问财获取指定日期以来主力资金净流入靠前的股票，形成初始候选池。</span>
+        </div>
+        <div class="main-force-card">
+            <strong>2. 防追高过滤</strong>
+            <span>限制区间涨跌幅，默认过滤涨幅过高的股票，避免资金已经兑现后的追高风险。</span>
+        </div>
+        <div class="main-force-card">
+            <strong>3. 市值与风险过滤</strong>
+            <span>按市值范围筛选，并排除 ST、科创等不符合当前策略偏好的股票。</span>
+        </div>
+        <div class="main-force-card">
+            <strong>4. 板块与 AI 精选</strong>
+            <span>按行业观察资金集中度，结合资金面、行业面、基本面报告，精选最终标的。</span>
+        </div>
+    </div>
+    <div class="main-force-note">
+        <strong>形态加分：</strong>候选股会额外计算均线多头、20/60日突破、放量、MACD动能、回踩MA20企稳、RSI健康度等形态条件。
+        形态用于加分和辅助排序，不会直接把资金强但形态未确认的股票一刀切过滤。
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -130,33 +329,52 @@ def display_main_force_selector():
     st.markdown("---")
 
     # 开始分析按钮（使用.env中配置的默认模型）
-    if st.button("🚀 开始主力选股", type="primary", width='content'):
+    is_running = st.session_state.get('main_force_analysis_running', False)
+    button_label = "⏳ 主力选股分析中..." if is_running else "🚀 开始主力选股"
+    start_clicked = st.button(
+        button_label,
+        type="primary",
+        width='content',
+        disabled=is_running,
+        key="main_force_start_button"
+    )
 
-        with st.spinner("正在获取数据并分析，这可能需要几分钟..."):
+    if start_clicked:
+        st.session_state.main_force_analysis_running = True
 
-            # 创建分析器（使用默认模型）
-            analyzer = MainForceAnalyzer()
+        progress_bar, status_text, update_process = create_main_force_process_panel()
+        update_process("开始主力选股分析", 3)
 
-            # 运行分析
-            result = analyzer.run_full_analysis(
-                start_date=start_date,
-                days_ago=days_ago,
-                final_n=final_n,
-                max_range_change=max_change,
-                min_market_cap=min_cap,
-                max_market_cap=max_cap
-            )
+        # 创建分析器（使用默认模型）
+        analyzer = MainForceAnalyzer()
 
-            # 保存结果到session_state
-            st.session_state.main_force_result = result
-            st.session_state.main_force_analyzer = analyzer
+        # 运行分析
+        result = analyzer.run_full_analysis(
+            start_date=start_date,
+            days_ago=days_ago,
+            final_n=final_n,
+            max_range_change=max_change,
+            min_market_cap=min_cap,
+            max_market_cap=max_cap,
+            progress_callback=update_process
+        )
+
+        # 保存结果到session_state
+        st.session_state.main_force_result = result
+        st.session_state.main_force_analyzer = analyzer
+        st.session_state.main_force_analysis_running = False
 
         # 显示结果
         if result['success']:
+            update_process("主力选股分析完成", 100)
             st.success(f"✅ 分析完成！共筛选出 {len(result['final_recommendations'])} 只优质标的")
+            status_text.empty()
+            progress_bar.empty()
             st.rerun()
         else:
+            update_process(f"分析失败：{result.get('error', '未知错误')}", None)
             st.error(f"❌ 分析失败: {result.get('error', '未知错误')}")
+            st.session_state.main_force_analysis_running = False
 
     # 显示分析结果
     if 'main_force_result' in st.session_state:
@@ -195,9 +413,12 @@ def display_analysis_results(result: dict, analyzer):
     if result['final_recommendations']:
         st.markdown("### ⭐ 精选推荐")
 
+        mask_identity = is_mask_stock_identity_enabled()
         for rec in result['final_recommendations']:
+            display_symbol = mask_stock_code(rec['symbol']) if mask_identity else rec['symbol']
+            display_name = mask_stock_name(rec['name']) if mask_identity else rec['name']
             with st.expander(
-                f"【第{rec['rank']}名】{rec['symbol']} - {rec['name']}",
+                f"【第{rec['rank']}名】{display_symbol} - {display_name}",
                 expanded=(rec['rank'] <= 3)
             ):
                 display_recommendation_detail(rec)
@@ -253,6 +474,16 @@ def display_analysis_results(result: dict, analyzer):
             if matching_cols:
                 display_cols.append(matching_cols[0])
 
+        # 添加技术形态评分字段
+        for col_name in ['形态评分', '形态等级', '形态标签']:
+            if col_name in analyzer.raw_stocks.columns:
+                display_cols.append(col_name)
+
+        # 添加综合展示分字段（若来自推荐结果补充）
+        for col_name in ['分值_overall', '分值_fund_flow', '分值_industry', '分值_fundamental', '分值_technical_pattern']:
+            if col_name in analyzer.raw_stocks.columns:
+                display_cols.append(col_name)
+
         # 选择存在的列
         final_cols = [col for col in display_cols if col in analyzer.raw_stocks.columns]
 
@@ -273,6 +504,7 @@ def display_analysis_results(result: dict, analyzer):
 
         # 显示DataFrame
         display_df = analyzer.raw_stocks[final_cols].copy()
+        display_df = mask_dataframe_stock_identity(display_df)
         st.dataframe(display_df, width='content', height=400)
 
         # 显示统计
@@ -337,24 +569,44 @@ def display_analysis_results(result: dict, analyzer):
 
 def display_recommendation_detail(rec: dict):
     """显示单个推荐股票的详细信息"""
+    scores = rec.get('scores', {}) or {}
+    stock_data = rec.get('stock_data', {})
+    mask_identity = is_mask_stock_identity_enabled()
+    pattern_score, pattern_level, pattern_tags = get_pattern_display(stock_data, scores)
+
+    st.markdown('<div class="main-force-result-card">', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="main-force-score-grid">
+        <div class="main-force-score overall"><strong>{scores.get('overall', 'N/A')}</strong><span>综合分</span></div>
+        <div class="main-force-score"><strong>{scores.get('fund_flow', 'N/A')}</strong><span>资金分</span></div>
+        <div class="main-force-score"><strong>{scores.get('industry', 'N/A')}</strong><span>板块分</span></div>
+        <div class="main-force-score"><strong>{scores.get('fundamental', 'N/A')}</strong><span>基本面分</span></div>
+        <div class="main-force-score"><strong>{pattern_score}</strong><span>形态分</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.markdown("#### 📌 推荐理由")
+        st.markdown('<div class="main-force-section"><h4>📌 推荐理由</h4>', unsafe_allow_html=True)
         for reason in rec.get('reasons', []):
             st.markdown(f"- {reason}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("#### 💡 投资亮点")
-        st.info(rec.get('highlights', 'N/A'))
+        st.markdown('<div class="main-force-section"><h4>💡 投资亮点</h4>', unsafe_allow_html=True)
+        st.write(rec.get('highlights', 'N/A'))
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        st.markdown("#### 📊 投资建议")
+        st.markdown('<div class="main-force-section"><h4>📊 投资建议</h4>', unsafe_allow_html=True)
         st.markdown(f"**建议仓位**: {rec.get('position', 'N/A')}")
         st.markdown(f"**投资周期**: {rec.get('investment_period', 'N/A')}")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("#### ⚠️ 风险提示")
-        st.warning(rec.get('risks', 'N/A'))
+        st.markdown('<div class="main-force-section"><h4>⚠️ 风险提示</h4>', unsafe_allow_html=True)
+        st.write(rec.get('risks', 'N/A'))
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # 显示股票详细数据
     if 'stock_data' in rec:
@@ -367,7 +619,8 @@ def display_recommendation_detail(rec: dict):
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric("股票代码", stock_data.get('股票代码', 'N/A'))
+            stock_code = stock_data.get('股票代码', 'N/A')
+            st.metric("股票代码", mask_stock_code(stock_code) if mask_identity else stock_code)
 
             # 显示行业
             industry_keys = [k for k in stock_data.keys() if '行业' in k]
@@ -394,6 +647,15 @@ def display_recommendation_detail(rec: dict):
                 else:
                     st.metric("区间涨跌幅", str(change_value))
 
+        st.markdown("#### 📐 技术形态")
+        col_shape1, col_shape2, col_shape3 = st.columns(3)
+        with col_shape1:
+            st.metric("形态评分", pattern_score)
+        with col_shape2:
+            st.metric("形态等级", pattern_level)
+        with col_shape3:
+            st.metric("形态标签", pattern_tags)
+
         # 显示其他关键指标
         st.markdown("**其他关键指标：**")
         metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
@@ -416,37 +678,51 @@ def display_recommendation_detail(rec: dict):
                 if cap_keys:
                     st.caption(f"总市值: {stock_data.get(cap_keys[0], 'N/A')}")
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def display_analyst_reports(analyzer):
     """显示AI分析师完整报告"""
 
     st.markdown("### 🤖 AI分析师团队完整报告")
 
-    # 创建三个标签页
-    tab1, tab2, tab3 = st.tabs(["💰 资金流向分析", "📊 行业板块分析", "📈 财务基本面分析"])
+    # 创建四个标签页
+    tab1, tab2, tab3, tab4 = st.tabs(["💰 资金流向分析", "📊 行业板块分析", "📈 财务基本面分析", "📐 技术形态分析"])
 
     with tab1:
         st.markdown("#### 💰 资金流向分析师报告")
-        st.markdown("---")
+        st.markdown('<div class="main-force-report">', unsafe_allow_html=True)
         if hasattr(analyzer, 'fund_flow_analysis') and analyzer.fund_flow_analysis:
             st.markdown(analyzer.fund_flow_analysis)
         else:
             st.info("暂无资金流向分析报告")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab2:
         st.markdown("#### 📊 行业板块及市场热点分析师报告")
-        st.markdown("---")
+        st.markdown('<div class="main-force-report">', unsafe_allow_html=True)
         if hasattr(analyzer, 'industry_analysis') and analyzer.industry_analysis:
             st.markdown(analyzer.industry_analysis)
         else:
             st.info("暂无行业板块分析报告")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab3:
         st.markdown("#### 📈 财务基本面分析师报告")
-        st.markdown("---")
+        st.markdown('<div class="main-force-report">', unsafe_allow_html=True)
         if hasattr(analyzer, 'fundamental_analysis') and analyzer.fundamental_analysis:
             st.markdown(analyzer.fundamental_analysis)
         else:
             st.info("暂无财务基本面分析报告")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab4:
+        st.markdown("#### 📐 技术形态分析师报告")
+        st.markdown('<div class="main-force-report">', unsafe_allow_html=True)
+        if hasattr(analyzer, 'technical_pattern_analysis') and analyzer.technical_pattern_analysis:
+            st.markdown(analyzer.technical_pattern_analysis)
+        else:
+            st.info("暂无技术形态分析报告")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def format_number(value, unit='', suffix=''):
     """格式化数字显示"""
@@ -522,7 +798,9 @@ def run_main_force_batch_analysis():
             del st.session_state.main_force_batch_trigger
         return
 
-    st.info(f"即将分析 {len(stock_codes)} 只股票：{', '.join(stock_codes[:10])}{'...' if len(stock_codes) > 10 else ''}")
+    mask_identity = is_mask_stock_identity_enabled()
+    display_codes = [mask_stock_code(code) for code in stock_codes] if mask_identity else stock_codes
+    st.info(f"即将分析 {len(stock_codes)} 只股票：{', '.join(display_codes[:10])}{'...' if len(display_codes) > 10 else ''}")
 
     # 返回按钮
     if st.button("🔙 取消返回", type="secondary"):
@@ -589,7 +867,7 @@ def run_main_force_batch_analysis():
         # 显示即将分析的股票代码（调试用）
         with st.expander("🔍 调试信息", expanded=True):
             st.write(f"**股票代码数量**: {len(stock_codes)} 只")
-            st.write(f"**股票代码列表**: {stock_codes}")
+            st.write(f"**股票代码列表**: {display_codes}")
             st.write(f"**代码格式检查**: {'✅ 无后缀，格式正确' if all('.' not in str(c) for c in stock_codes) else '❌ 包含后缀，可能有问题'}")
             st.write(f"**分析模式**: {analysis_mode}")
             st.write(f"**线程数**: {max_workers if analysis_mode == 'parallel' else 1}")
@@ -620,7 +898,8 @@ def run_main_force_batch_analysis():
         if analysis_mode == "sequential":
             # 顺序分析
             for i, code in enumerate(stock_codes):
-                status_text.text(f"正在分析 {code} ({i+1}/{len(stock_codes)})")
+                display_code = mask_stock_code(code) if mask_identity else code
+                status_text.text(f"正在分析 {display_code} ({i+1}/{len(stock_codes)})")
                 progress_bar.progress((i + 1) / len(stock_codes))
 
                 try:
@@ -672,7 +951,8 @@ def run_main_force_batch_analysis():
                     completed += 1
                     progress = completed / len(stock_codes)
                     progress_bar.progress(progress)
-                    status_text.text(f"已完成 {completed}/{len(stock_codes)} ({code})")
+                    display_code = mask_stock_code(code) if mask_identity else code
+                    status_text.text(f"已完成 {completed}/{len(stock_codes)} ({display_code})")
 
                     print(f"  进度更新: {completed}/{len(stock_codes)} ({progress*100:.1f}%) - {code}")
 
@@ -867,7 +1147,7 @@ def display_main_force_batch_results(batch_results):
             if col in df_display.columns:
                 df_display[col] = df_display[col].astype(str)
 
-        st.dataframe(df_display, width='content', height=400)
+        st.dataframe(mask_dataframe_stock_identity(df_display), width='content', height=400)
 
         # 详细分析结果（可展开）
         st.markdown("---")
@@ -879,6 +1159,8 @@ def display_main_force_batch_results(batch_results):
 
             symbol = stock_info.get('symbol', '')
             name = stock_info.get('name', '')
+            display_symbol = mask_stock_code(symbol) if is_mask_stock_identity_enabled() else symbol
+            display_name = mask_stock_name(name) if is_mask_stock_identity_enabled() else name
             rating = final_decision.get('rating', '未知')
             rating_emoji = {
                 '强烈买入': '🔥',
@@ -888,7 +1170,7 @@ def display_main_force_batch_results(batch_results):
                 '强烈卖出': '🚫'
             }.get(rating, '❓')
 
-            with st.expander(f"{rating_emoji} {symbol} - {name} | {rating}"):
+            with st.expander(f"{rating_emoji} {display_symbol} - {display_name} | {rating}"):
                 # 关键信息
                 col1, col2, col3 = st.columns(3)
 

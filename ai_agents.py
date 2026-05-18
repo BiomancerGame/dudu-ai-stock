@@ -1,5 +1,5 @@
 from deepseek_client import DeepSeekClient
-from typing import Dict, Any
+from typing import Callable, Dict, Any
 import time
 import config
 
@@ -409,7 +409,8 @@ class StockAnalysisAgents:
                                  financial_data: Dict = None, fund_flow_data: Dict = None, 
                                  sentiment_data: Dict = None, news_data: Dict = None,
                                  quarterly_data: Dict = None, risk_data: Dict = None,
-                                 enabled_analysts: Dict = None) -> Dict[str, Any]:
+                                 enabled_analysts: Dict = None,
+                                 progress_callback: Callable[[str, str, float], None] = None) -> Dict[str, Any]:
         """运行多智能体分析
         
         Args:
@@ -438,30 +439,26 @@ class StockAnalysisAgents:
         
         # 并行运行各个分析师
         agents_results = {}
+        analyst_steps = [
+            ("technical", "technical", "技术分析师", lambda: self.technical_analyst_agent(stock_info, stock_data, indicators), True),
+            ("fundamental", "fundamental", "基本面分析师", lambda: self.fundamental_analyst_agent(stock_info, financial_data, quarterly_data), True),
+            ("fund_flow", "fund_flow", "资金面分析师", lambda: self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data), True),
+            ("risk", "risk_management", "风险管理师", lambda: self.risk_management_agent(stock_info, indicators, risk_data), True),
+            ("sentiment", "market_sentiment", "市场情绪分析师", lambda: self.market_sentiment_agent(stock_info, sentiment_data), False),
+            ("news", "news", "新闻分析师", lambda: self.news_analyst_agent(stock_info, news_data), False),
+        ]
+        active_steps = [
+            step for step in analyst_steps
+            if enabled_analysts.get(step[0], step[4])
+        ]
+        total_steps = max(len(active_steps), 1)
         
-        # 技术面分析
-        if enabled_analysts.get('technical', True):
-            agents_results["technical"] = self.technical_analyst_agent(stock_info, stock_data, indicators)
-        
-        # 基本面分析
-        if enabled_analysts.get('fundamental', True):
-            agents_results["fundamental"] = self.fundamental_analyst_agent(stock_info, financial_data, quarterly_data)
-        
-        # 资金面分析（传入资金流向数据）
-        if enabled_analysts.get('fund_flow', True):
-            agents_results["fund_flow"] = self.fund_flow_analyst_agent(stock_info, indicators, fund_flow_data)
-        
-        # 风险管理分析（传入风险数据）
-        if enabled_analysts.get('risk', True):
-            agents_results["risk_management"] = self.risk_management_agent(stock_info, indicators, risk_data)
-        
-        # 市场情绪分析（传入市场情绪数据）
-        if enabled_analysts.get('sentiment', False):
-            agents_results["market_sentiment"] = self.market_sentiment_agent(stock_info, sentiment_data)
-        
-        # 新闻分析（传入新闻数据）
-        if enabled_analysts.get('news', False):
-            agents_results["news"] = self.news_analyst_agent(stock_info, news_data)
+        for index, (_, result_key, agent_name, agent_runner, _) in enumerate(active_steps, start=1):
+            if progress_callback:
+                progress_callback("running", f"{agent_name}正在分析", (index - 1) / total_steps)
+            agents_results[result_key] = agent_runner()
+            if progress_callback:
+                progress_callback("done", f"{agent_name}分析完成", index / total_steps)
         
         print("✅ 所有已选择的分析师完成分析")
         print("=" * 50)
