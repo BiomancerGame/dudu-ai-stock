@@ -355,126 +355,103 @@ MACD金叉且柱状图持续放大，RSI 62处于健康区间。今日成交量�
 
     def _build_a_stock_prompt(self, stock_code: str, market_data: Dict,
                              account_info: Dict, has_position: bool,
-                             session_info: Dict, position_cost: float = 0, 
+                             session_info: Dict, position_cost: float = 0,
                              position_quantity: int = 0) -> str:
-        """构建A股分析提示词"""
-        
-        prompt = f"""
-[TIMER] 当前交易时段
-═══════════════════════════════════════════════════════════
-当前时段: {session_info['session']} (北京时间{session_info['beijing_hour']}:00)
-市场状态: {session_info['volatility'].upper()}
-时段建议: {session_info['recommendation']}
-可交易: {'是' if session_info['can_trade'] else '否'}
+        """构建A股分析提示词。模板见 prompts/smart_monitor_a_stock.md。"""
+        from prompts import render as render_prompt
 
-[STOCK] 股票基本信息
-═══════════════════════════════════════════════════════════
-股票代码: {stock_code}
-股票名称: {market_data.get('name', 'N/A')}
-当前价格: ¥{market_data.get('current_price', 0):.2f}
-今日涨跌: {market_data.get('change_pct', 0):+.2f}%
-今日涨跌额: ¥{market_data.get('change_amount', 0):+.2f}
-最高价: ¥{market_data.get('high', 0):.2f}
-最低价: ¥{market_data.get('low', 0):.2f}
-开盘价: ¥{market_data.get('open', 0):.2f}
-昨收价: ¥{market_data.get('pre_close', 0):.2f}
-成交量: {market_data.get('volume', 0):,.0f}手
-成交额: ¥{market_data.get('amount', 0):,.2f}万
+        # 趋势 / MACD / RSI / 量比 文字标签
+        trend = market_data.get('trend')
+        trend_text = '多头排列' if trend == 'up' else '空头排列' if trend == 'down' else '震荡'
 
-[TECHNICAL] 技术指标
-═══════════════════════════════════════════════════════════
-MA5: ¥{market_data.get('ma5', 0):.2f}
-MA20: ¥{market_data.get('ma20', 0):.2f}
-MA60: ¥{market_data.get('ma60', 0):.2f}
-趋势判断: {'多头排列' if market_data.get('trend') == 'up' else '空头排列' if market_data.get('trend') == 'down' else '震荡'}
+        macd_val = market_data.get('macd', 0)
+        macd_signal = '金叉' if macd_val > 0 else '死叉'
 
-MACD:
-  DIF: {market_data.get('macd_dif', 0):.4f}
-  DEA: {market_data.get('macd_dea', 0):.4f}
-  MACD: {market_data.get('macd', 0):.4f} ({'金叉' if market_data.get('macd', 0) > 0 else '死叉'})
+        rsi6_val = market_data.get('rsi6', 50)
+        rsi6_signal = '[超买]' if rsi6_val > 80 else '[超卖]' if rsi6_val < 20 else '[正常]'
 
-RSI(6): {market_data.get('rsi6', 50):.2f} {'[超买]' if market_data.get('rsi6', 50) > 80 else '[超卖]' if market_data.get('rsi6', 50) < 20 else '[正常]'}
-RSI(12): {market_data.get('rsi12', 50):.2f}
-RSI(24): {market_data.get('rsi24', 50):.2f}
+        vol_ratio = market_data.get('volume_ratio', 0)
+        volume_signal = '放量' if vol_ratio > 1.2 else '缩量' if vol_ratio < 0.8 else '正常'
 
-KDJ:
-  K: {market_data.get('kdj_k', 50):.2f}
-  D: {market_data.get('kdj_d', 50):.2f}
-  J: {market_data.get('kdj_j', 50):.2f}
-
-布林带:
-  上轨: ¥{market_data.get('boll_upper', 0):.2f}
-  中轨: ¥{market_data.get('boll_mid', 0):.2f}
-  下轨: ¥{market_data.get('boll_lower', 0):.2f}
-  位置: {market_data.get('boll_position', 'N/A')}
-
-[VOLUME] 量能分析
-═══════════════════════════════════════════════════════════
-今日成交量: {market_data.get('volume', 0):,.0f}手
-5日均量: {market_data.get('vol_ma5', 0):,.0f}手
-量比: {market_data.get('volume_ratio', 0):.2f} ({'放量' if market_data.get('volume_ratio', 0) > 1.2 else '缩量' if market_data.get('volume_ratio', 0) < 0.8 else '正常'})
-换手率: {market_data.get('turnover_rate', 0):.2f}%
-
-[ACCOUNT] 账户状态
-═══════════════════════════════════════════════════════════
-可用资金: ¥{account_info.get('available_cash', 0):,.2f}
-总资产: ¥{account_info.get('total_value', 0):,.2f}
-持仓数量: {account_info.get('positions_count', 0)}
-"""
-
-        # 如果已持有该股票
+        # 持仓块 (条件性段落)
         if has_position and position_cost > 0 and position_quantity > 0:
             current_price = market_data.get('current_price', 0)
             cost_total = position_cost * position_quantity
             current_total = current_price * position_quantity
             profit_loss = current_total - cost_total
             profit_loss_pct = (profit_loss / cost_total * 100) if cost_total > 0 else 0
-            
-            prompt += f"""
-[POSITION] 当前持仓（{stock_code}） ⭐ 重要
-═══════════════════════════════════════════════════════════
-持仓数量: {position_quantity}股
-成本价: ¥{position_cost:.2f}
-当前价: ¥{current_price:.2f}
-持仓市值: ¥{current_total:,.2f}
-浮动盈亏: ¥{profit_loss:,.2f} ({profit_loss_pct:+.2f}%)
-
-⚠️ T+1限制: 该股票可以卖出（不受T+1限制）
-
-💡 决策建议：
-- 如果盈利且技术指标转弱 → 建议止盈卖出
-- 如果亏损超过止损线（通常-5%）→ 建议止损卖出
-- 如果技术指标强势且未到止盈位 → 建议继续持有
-- 如果盈利且看好后市 → 可考虑加仓（但注意仓位控制）
-"""
+            position_block = (
+                f"\n[POSITION] 当前持仓（{stock_code}） ⭐ 重要\n"
+                f"═══════════════════════════════════════════════════════════\n"
+                f"持仓数量: {position_quantity}股\n"
+                f"成本价: ¥{position_cost:.2f}\n"
+                f"当前价: ¥{current_price:.2f}\n"
+                f"持仓市值: ¥{current_total:,.2f}\n"
+                f"浮动盈亏: ¥{profit_loss:,.2f} ({profit_loss_pct:+.2f}%)\n\n"
+                f"⚠️ T+1限制: 该股票可以卖出（不受T+1限制）\n\n"
+                f"💡 决策建议：\n"
+                f"- 如果盈利且技术指标转弱 → 建议止盈卖出\n"
+                f"- 如果亏损超过止损线（通常-5%）→ 建议止损卖出\n"
+                f"- 如果技术指标强势且未到止盈位 → 建议继续持有\n"
+                f"- 如果盈利且看好后市 → 可考虑加仓（但注意仓位控制）\n"
+            )
         else:
-            prompt += """
-[POSITION] 当前无持仓
-═══════════════════════════════════════════════════════════
-可考虑买入，但必须确保：
-1. 技术面强势（满足至少3个买入信号）
-2. 有足够的安全边际
-3. 考虑T+1规则，买入后至少持有1天
-4. 控制仓位，建议单只股票仓位≤30%
-"""
+            position_block = (
+                "\n[POSITION] 当前无持仓\n"
+                "═══════════════════════════════════════════════════════════\n"
+                "可考虑买入，但必须确保：\n"
+                "1. 技术面强势（满足至少3个买入信号）\n"
+                "2. 有足够的安全边际\n"
+                "3. 考虑T+1规则，买入后至少持有1天\n"
+                "4. 控制仓位，建议单只股票仓位≤30%\n"
+            )
 
-        # 主力资金数据（已禁用 - 接口不稳定）
-        # if 'main_force' in market_data:
-        #     mf = market_data['main_force']
-        #     prompt += f"""
-        # [MONEY] 主力资金流向
-        # ═══════════════════════════════════════════════════════════
-        # 主力净额: ¥{mf.get('main_net', 0):,.2f}万 ({mf.get('main_net_pct', 0):+.2f}%)
-        # 超大单: ¥{mf.get('super_net', 0):,.2f}万
-        # 大单: ¥{mf.get('big_net', 0):,.2f}万
-        # 中单: ¥{mf.get('mid_net', 0):,.2f}万
-        # 小单: ¥{mf.get('small_net', 0):,.2f}万
-        # 主力动向: {mf.get('trend', '观望')}
-        # """
-
-        prompt += "\n请基于以上数据，给出交易决策（JSON格式）。"
-        
-        return prompt
+        return render_prompt(
+            "smart_monitor_a_stock",
+            session=session_info['session'],
+            beijing_hour=session_info['beijing_hour'],
+            volatility=session_info['volatility'].upper(),
+            recommendation=session_info['recommendation'],
+            can_trade='是' if session_info['can_trade'] else '否',
+            stock_code=stock_code,
+            name=market_data.get('name', 'N/A'),
+            current_price=f"{market_data.get('current_price', 0):.2f}",
+            change_pct=f"{market_data.get('change_pct', 0):+.2f}",
+            change_amount=f"{market_data.get('change_amount', 0):+.2f}",
+            high=f"{market_data.get('high', 0):.2f}",
+            low=f"{market_data.get('low', 0):.2f}",
+            open=f"{market_data.get('open', 0):.2f}",
+            pre_close=f"{market_data.get('pre_close', 0):.2f}",
+            volume=f"{market_data.get('volume', 0):,.0f}",
+            amount=f"{market_data.get('amount', 0):,.2f}",
+            ma5=f"{market_data.get('ma5', 0):.2f}",
+            ma20=f"{market_data.get('ma20', 0):.2f}",
+            ma60=f"{market_data.get('ma60', 0):.2f}",
+            trend_text=trend_text,
+            macd_dif=f"{market_data.get('macd_dif', 0):.4f}",
+            macd_dea=f"{market_data.get('macd_dea', 0):.4f}",
+            macd=f"{macd_val:.4f}",
+            macd_signal=macd_signal,
+            rsi6=f"{rsi6_val:.2f}",
+            rsi6_signal=rsi6_signal,
+            rsi12=f"{market_data.get('rsi12', 50):.2f}",
+            rsi24=f"{market_data.get('rsi24', 50):.2f}",
+            kdj_k=f"{market_data.get('kdj_k', 50):.2f}",
+            kdj_d=f"{market_data.get('kdj_d', 50):.2f}",
+            kdj_j=f"{market_data.get('kdj_j', 50):.2f}",
+            boll_upper=f"{market_data.get('boll_upper', 0):.2f}",
+            boll_mid=f"{market_data.get('boll_mid', 0):.2f}",
+            boll_lower=f"{market_data.get('boll_lower', 0):.2f}",
+            boll_position=market_data.get('boll_position', 'N/A'),
+            vol_ma5=f"{market_data.get('vol_ma5', 0):,.0f}",
+            volume_ratio=f"{vol_ratio:.2f}",
+            volume_signal=volume_signal,
+            turnover_rate=f"{market_data.get('turnover_rate', 0):.2f}",
+            available_cash=f"{account_info.get('available_cash', 0):,.2f}",
+            total_value=f"{account_info.get('total_value', 0):,.2f}",
+            positions_count=account_info.get('positions_count', 0),
+            position_block=position_block,
+        )
 
     def _parse_decision(self, ai_response: str) -> Dict:
         """解析AI决策响应"""
