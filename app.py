@@ -155,7 +155,7 @@ def main():
                     sidebar_nav_link("🎯 智策板块", "sector_strategy", "AI板块策略分析")
 
                 if menu_enabled("nav_longhubang", menu_config):
-                    sidebar_nav_link("🐉 智瞰龙虎", "longhubang", "龙虎榜深度分析")
+                    sidebar_nav_link("🐉 智囊团游资龙虎榜", "longhubang", "龙虎榜深度分析")
             
                 if menu_enabled("nav_news_flow", menu_config):
                     sidebar_nav_link("📰 新闻流量", "news_flow", "新闻流量监测与短线指导")
@@ -254,7 +254,7 @@ def main():
             **功能说明**
             - **股票分析**：AI团队深度分析个股
             - **选股板块**：主力资金选股策略
-            - **策略分析**：智策板块、智瞰龙虎
+            - **策略分析**：智策板块、智囊团游资龙虎榜
             - **投资管理**：持仓分析、实时监测
             - **历史记录**：查看分析历史
             
@@ -330,7 +330,7 @@ def main():
         display_sector_strategy()
         return
 
-    # 检查是否显示智瞰龙虎
+    # 检查是否显示智囊团游资龙虎榜
     if 'show_longhubang' in st.session_state and st.session_state.show_longhubang:
         display_longhubang()
         return

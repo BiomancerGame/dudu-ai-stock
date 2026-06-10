@@ -1,5 +1,5 @@
 """
-智瞰龙虎AI智能评分模块
+智囊团游资龙虎榜AI智能评分模块
 对龙虎榜上榜股票进行综合评分排名
 """
 
@@ -34,7 +34,7 @@ class LonghubangScoring:
             'QFII', 'RQFII', '券商', '信托'
         ]
         
-        print("[智瞰龙虎] 评分系统初始化完成")
+        print("[智囊团游资龙虎榜] 评分系统初始化完成")
     
     def calculate_stock_score(self, stock_data: List[Dict]) -> float:
         """
@@ -545,7 +545,7 @@ class LonghubangScoring:
 # 测试函数
 if __name__ == "__main__":
     print("=" * 60)
-    print("测试智瞰龙虎评分系统")
+    print("测试智囊团游资龙虎榜评分系统")
     print("=" * 60)
     
     # 创建测试数据

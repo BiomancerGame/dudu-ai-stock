@@ -51,9 +51,7 @@ def mask_stock_code(value: Any) -> str:
 
     if len(base) <= 2:
         return "*" * len(base) + suffix
-    if len(base) <= 4:
-        return f"{base[0]}{'*' * (len(base) - 1)}{suffix}"
-    return f"{base[:2]}{'*' * (len(base) - 4)}{base[-2:]}{suffix}"
+    return f"{base[0]}{'*' * (len(base) - 2)}{base[-1]}{suffix}"
 
 
 def mask_stock_name(value: Any) -> str:

@@ -8,6 +8,7 @@ import requests
 import json
 import pywencai
 from data_source_manager import data_source_manager
+from core.data_cache import _data_cache, _make_key
 
 class StockDataFetcher:
     """股票数据获取类"""
@@ -103,7 +104,7 @@ class StockDataFetcher:
                             try:
                                 if value and value != '-':
                                     info['market_cap'] = float(value)
-                            except:
+                            except Exception:
                                 pass
                         elif key == '市盈率-动态':
                             try:
@@ -111,7 +112,7 @@ class StockDataFetcher:
                                     pe_value = float(value)
                                     if 0 < pe_value <= 1000:
                                         info['pe_ratio'] = pe_value
-                            except:
+                            except Exception:
                                 pass
                         elif key == '市净率':
                             try:
@@ -119,7 +120,7 @@ class StockDataFetcher:
                                     pb_value = float(value)
                                     if 0 < pb_value <= 100:
                                         info['pb_ratio'] = pb_value
-                            except:
+                            except Exception:
                                 pass
             except Exception as e:
                 print(f"[Akshare] 获取个股详细信息失败: {e}")
@@ -280,7 +281,7 @@ class StockDataFetcher:
                         if market_cap != 'N/A':
                             try:
                                 info['market_cap'] = float(market_cap)
-                            except:
+                            except Exception:
                                 pass
                         
                         # 市盈率
@@ -290,7 +291,7 @@ class StockDataFetcher:
                                 pe_val = float(pe)
                                 if 0 < pe_val <= 1000:
                                     info['pe_ratio'] = pe_val
-                            except:
+                            except Exception:
                                 pass
             except Exception as e:
                 print(f"获取港股实时数据失败: {e}")
@@ -331,11 +332,7 @@ class StockDataFetcher:
     
     def _get_us_stock_info(self, symbol):
         """获取美股基本信息"""
-        import time
-        
         try:
-            # 添加延迟避免频率限制
-            time.sleep(1)
             
             ticker = yf.Ticker(symbol)
             
@@ -352,7 +349,7 @@ class StockDataFetcher:
                 else:
                     current_price = 'N/A'
                     change_percent = 'N/A'
-            except:
+            except Exception:
                 current_price = 'N/A'
                 change_percent = 'N/A'
             
@@ -589,14 +586,21 @@ class StockDataFetcher:
             return {"error": f"获取最新指标失败: {str(e)}"}
     
     def get_financial_data(self, symbol):
-        """获取详细财务数据"""
+        """获取详细财务数据（含缓存，TTL=1小时）"""
+        cache_key = _make_key("get_financial_data", (symbol,), {})
+        hit = _data_cache.get(cache_key)
+        if hit is not None:
+            return hit
         try:
             if self._is_chinese_stock(symbol):
-                return self._get_chinese_financial_data(symbol)
+                result = self._get_chinese_financial_data(symbol)
             elif self._is_hk_stock(symbol):
-                return self._get_hk_financial_data(symbol)
+                result = self._get_hk_financial_data(symbol)
             else:
-                return self._get_us_financial_data(symbol)
+                result = self._get_us_financial_data(symbol)
+            if result and "error" not in result:
+                _data_cache.set(cache_key, result, expire=3600)
+            return result
         except Exception as e:
             return {"error": f"获取财务数据失败: {str(e)}"}
     
@@ -612,68 +616,66 @@ class StockDataFetcher:
         }
         
         try:
-            # 1. 获取资产负债表
-            try:
-                balance_sheet = ak.stock_financial_abstract_ths(symbol=symbol, indicator="资产负债表")
-                if balance_sheet is not None and not balance_sheet.empty:
-                    financial_data["balance_sheet"] = balance_sheet.head(8).to_dict('records')
-            except Exception as e:
-                print(f"获取资产负债表失败: {e}")
-            
-            # 2. 获取利润表
-            try:
-                income_statement = ak.stock_financial_abstract_ths(symbol=symbol, indicator="利润表")
-                if income_statement is not None and not income_statement.empty:
-                    financial_data["income_statement"] = income_statement.head(8).to_dict('records')
-            except Exception as e:
-                print(f"获取利润表失败: {e}")
-            
-            # 3. 获取现金流量表
-            try:
-                cash_flow = ak.stock_financial_abstract_ths(symbol=symbol, indicator="现金流量表")
-                if cash_flow is not None and not cash_flow.empty:
-                    financial_data["cash_flow"] = cash_flow.head(8).to_dict('records')
-            except Exception as e:
-                print(f"获取现金流量表失败: {e}")
-            
-            # 4. 获取主要财务指标
-            try:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _fetch_balance():
+                df = ak.stock_financial_abstract_ths(symbol=symbol, indicator="资产负债表")
+                return df.head(8).to_dict('records') if df is not None and not df.empty else None
+
+            def _fetch_income():
+                df = ak.stock_financial_abstract_ths(symbol=symbol, indicator="利润表")
+                return df.head(8).to_dict('records') if df is not None and not df.empty else None
+
+            def _fetch_cashflow():
+                df = ak.stock_financial_abstract_ths(symbol=symbol, indicator="现金流量表")
+                return df.head(8).to_dict('records') if df is not None and not df.empty else None
+
+            def _fetch_ratios():
                 financial_abstract = ak.stock_financial_abstract(symbol=symbol)
-                if financial_abstract is not None and not financial_abstract.empty:
-                    # 提取关键财务指标
-                    key_indicators = [
-                        '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售毛利率', '销售净利率',
-                        '资产负债率', '流动比率', '速动比率', '存货周转率', '应收账款周转率',
-                        '总资产周转率', '营业收入同比增长', '净利润同比增长'
-                    ]
-                    
-                    # 筛选出包含关键指标的行
-                    indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
-                    
-                    if not indicator_rows.empty:
-                        # 获取最新的报告期数据（第一列日期）
-                        date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
-                        if date_columns:
-                            latest_date = date_columns[0]  # 最新日期列
-                            
-                            # 构建财务比率字典
-                            financial_ratios = {"报告期": latest_date}
-                            
-                            # 提取每个指标的最新值
-                            for _, row in indicator_rows.iterrows():
-                                indicator_name = row['指标']
-                                value = row.get(latest_date, 'N/A')
-                                if value is not None and not (isinstance(value, float) and pd.isna(value)):
-                                    try:
-                                        financial_ratios[indicator_name] = str(value)
-                                    except:
-                                        financial_ratios[indicator_name] = "N/A"
-                                else:
-                                    financial_ratios[indicator_name] = "N/A"
-                            
-                            financial_data["financial_ratios"] = financial_ratios
-            except Exception as e:
-                print(f"获取财务指标失败: {e}")
+                if financial_abstract is None or financial_abstract.empty:
+                    return {}
+                key_indicators = [
+                    '净资产收益率(ROE)', '总资产报酬率(ROA)', '销售毛利率', '销售净利率',
+                    '资产负债率', '流动比率', '速动比率', '存货周转率', '应收账款周转率',
+                    '总资产周转率', '营业收入同比增长', '净利润同比增长'
+                ]
+                indicator_rows = financial_abstract[financial_abstract['指标'].isin(key_indicators)]
+                if indicator_rows.empty:
+                    return {}
+                date_columns = [col for col in financial_abstract.columns if col not in ['选项', '指标']]
+                if not date_columns:
+                    return {}
+                latest_date = date_columns[0]
+                financial_ratios = {"报告期": latest_date}
+                for _, row in indicator_rows.iterrows():
+                    indicator_name = row['指标']
+                    value = row.get(latest_date, 'N/A')
+                    if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                        try:
+                            financial_ratios[indicator_name] = str(value)
+                        except Exception:
+                            financial_ratios[indicator_name] = "N/A"
+                    else:
+                        financial_ratios[indicator_name] = "N/A"
+                return financial_ratios
+
+            # 并行获取4张财务报表
+            task_map = {
+                "balance_sheet": _fetch_balance,
+                "income_statement": _fetch_income,
+                "cash_flow": _fetch_cashflow,
+                "financial_ratios": _fetch_ratios,
+            }
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {executor.submit(fn): key for key, fn in task_map.items()}
+                for fut in as_completed(futures):
+                    key = futures[fut]
+                    try:
+                        result = fut.result()
+                        if result:
+                            financial_data[key] = result
+                    except Exception as e:
+                        print(f"获取{key}失败: {e}")
             
             # 注意：季报数据现在由 quarterly_report_data.py 模块使用 akshare 获取（8期完整季报）
             # 不再使用问财获取季报，避免重复
@@ -869,7 +871,7 @@ class StockDataFetcher:
                 value = value.replace('%', '').replace(',', '')
                 return float(value)
             return value
-        except:
+        except Exception:
             return value
     
     def _calculate_main_fund_ratio(self, main_fund, total_fund):
@@ -878,6 +880,10 @@ class StockDataFetcher:
             if main_fund != 'N/A' and total_fund != 'N/A' and total_fund != 0:
                 ratio = (main_fund / total_fund) * 100
                 return f"{ratio:.2f}%"
-        except:
+        except Exception:
             pass
         return 'N/A'
+
+
+# 模块级单例，避免多处重复实例化
+stock_data_fetcher = StockDataFetcher()

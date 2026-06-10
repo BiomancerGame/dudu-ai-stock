@@ -23,13 +23,14 @@ MENU_ITEMS: dict[str, dict[str, Any]] = {
     "nav_profit_growth": {"label": "📈 净利增长", "group": "stock_select", "default": True},
     "nav_value_stock": {"label": "💎 低估值策略", "group": "stock_select", "default": True},
     "nav_sector_strategy": {"label": "🎯 智策板块", "group": "strategy", "default": True},
-    "nav_longhubang": {"label": "🐉 智瞰龙虎", "group": "strategy", "default": True},
+    "nav_longhubang": {"label": "🐉 智囊团游资龙虎榜", "group": "strategy", "default": True},
     "nav_news_flow": {"label": "📰 新闻流量", "group": "strategy", "default": True},
     "nav_macro_analysis": {"label": "🌏 宏观分析", "group": "strategy", "default": True},
     "nav_macro_cycle": {"label": "🧭 宏观周期", "group": "strategy", "default": True},
     "nav_portfolio": {"label": "📊 持仓分析", "group": "investment", "default": True},
     "nav_smart_monitor": {"label": "🤖 AI盯盘", "group": "investment", "default": True},
     "nav_monitor": {"label": "📡 实时监测", "group": "investment", "default": True},
+    "nav_commonality": {"label": "🔗 共性追踪", "group": "strategy", "default": True},
     "nav_history": {"label": "📖 历史记录", "group": "common", "default": True},
 }
 
@@ -46,7 +47,7 @@ PAGE_KEYS: list[str] = [
     "show_portfolio", "show_smart_monitor", "show_low_price_bull",
     "show_small_cap", "show_profit_growth", "show_news_flow",
     "show_macro_cycle", "show_macro_analysis", "show_value_stock",
-    "show_menu_config",
+    "show_menu_config", "show_commonality",
 ]
 
 VIEW_TO_PAGE_KEY: dict[str, str] = {
@@ -67,6 +68,7 @@ VIEW_TO_PAGE_KEY: dict[str, str] = {
     "menu_config": "show_menu_config",
     "config": "show_config",
     "other_config": "show_other_config",
+    "commonality": "show_commonality",
 }
 
 

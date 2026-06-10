@@ -1,5 +1,5 @@
 """
-智瞰龙虎PDF报告生成模块
+智囊团游资龙虎榜PDF报告生成模块
 """
 
 from reportlab.lib import colors
@@ -39,7 +39,7 @@ class LonghubangPDFGenerator:
                         self.chinese_font = 'ChineseFont'
                         print(f"[PDF] 成功加载字体: {font_path}")
                         return
-                    except:
+                    except Exception:
                         continue
             
             # 如果都失败，使用默认字体
@@ -66,7 +66,7 @@ class LonghubangPDFGenerator:
             if output_path is None:
                 temp_dir = tempfile.gettempdir()
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                output_path = os.path.join(temp_dir, f"智瞰龙虎报告_{timestamp}.pdf")
+                output_path = os.path.join(temp_dir, f"智囊团游资龙虎榜报告_{timestamp}.pdf")
             
             # 创建PDF文档
             doc = SimpleDocTemplate(
@@ -178,7 +178,7 @@ class LonghubangPDFGenerator:
         elements.append(Spacer(1, 2*inch))
         
         # 主标题
-        title = Paragraph("智瞰龙虎榜分析报告", styles['Title'])
+        title = Paragraph("智囊团游资龙虎榜分析报告", styles['Title'])
         elements.append(title)
         elements.append(Spacer(1, 0.5*inch))
         
@@ -440,7 +440,7 @@ class LonghubangPDFGenerator:
 # 测试函数
 if __name__ == "__main__":
     print("=" * 60)
-    print("测试智瞰龙虎PDF生成模块")
+    print("测试智囊团游资龙虎榜PDF生成模块")
     print("=" * 60)
     
     # 创建测试数据

@@ -25,7 +25,7 @@ def _setup_stdout_encoding():
             # 不在streamlit环境，可以安全修改
             try:
                 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='ignore')
-            except:
+            except Exception:
                 pass
 
 _setup_stdout_encoding()
@@ -118,7 +118,7 @@ class QStockNewsDataFetcher:
                             # 保存字段
                             try:
                                 item[col] = str(value)
-                            except:
+                            except Exception:
                                 item[col] = "无法解析"
                         
                         if len(item) > 1:  # 如果有数据才添加
@@ -158,12 +158,12 @@ class QStockNewsDataFetcher:
                                             continue
                                         try:
                                             item[col] = str(value)
-                                        except:
+                                        except Exception:
                                             item[col] = "无法解析"
                                     
                                     if len(item) > 1:
                                         news_items.append(item)
-                        except:
+                        except Exception:
                             pass
                 
                 except Exception as e:
@@ -194,7 +194,7 @@ class QStockNewsDataFetcher:
                                         continue
                                     try:
                                         item[col] = str(value)
-                                    except:
+                                    except Exception:
                                         item[col] = "无法解析"
                                 
                                 if len(item) > 1:

@@ -11,6 +11,43 @@ import pywencai
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 import time
+import threading
+
+# 新版问财 OpenAPI (SkillHub 2.0) 客户端 - 替代失效的 pywencai 老接口
+try:
+    import iwencai_openapi
+    _IWENCAI_OPENAPI_AVAILABLE = iwencai_openapi.is_available()
+except ImportError:
+    iwencai_openapi = None
+    _IWENCAI_OPENAPI_AVAILABLE = False
+
+
+def _pywencai_with_timeout(query: str, timeout_sec: int = 40):
+    """带超时的pywencai调用。超时返回None,不会卡死主线程。"""
+    result_box = {'value': None, 'error': None}
+
+    def _worker():
+        try:
+            # retry=2: 单页最多重试2次(默认10次太多导致node进程风暴)
+            # loop=2: 最多取2页(200只),够用且大幅减少耗时
+            # sleep=1: 每次重试间隔1秒,避免被反爬封禁
+            result_box['value'] = pywencai.get(
+                query=query,
+                loop=2,
+                retry=2,
+                sleep=1,
+                request_params={'timeout': (10, 25)},
+            )
+        except Exception as e:
+            result_box['error'] = e
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(timeout=timeout_sec)
+    if t.is_alive():
+        # 超时,放弃此次调用(线程daemon=True,不阻塞主进程退出)
+        return None, TimeoutError(f"pywencai调用超过 {timeout_sec} 秒未返回")
+    return result_box['value'], result_box['error']
 
 class MainForceStockSelector:
     """主力选股类"""
@@ -65,13 +102,40 @@ class MainForceStockSelector:
                 f"{start_date}以来主力资金净流入前100名，并计算区间涨跌幅，市值{min_market_cap}-{max_market_cap}亿，非st非科创板，所属行业，总市值",
             ]
             
-            # 尝试不同的查询方案
+            # ═══ 优先使用新版问财 OpenAPI (SkillHub 2.0) ═══
+            # 老的 pywencai 接口 get-robot-data 已被官方废弃 (2026-01)
+            # 新接口需要 API Key,在 https://www.iwencai.com/skillhub 申请,设置 IWENCAI_API_KEY 环境变量
+            if _IWENCAI_OPENAPI_AVAILABLE:
+                print(f"\n🔑 使用新版问财 OpenAPI...")
+                for i, query in enumerate(queries, 1):
+                    print(f"  方案{i}/{len(queries)}: {query[:80]}...")
+                    df_result = iwencai_openapi.query_to_dataframe(query, max_pages=2)
+                    if df_result is None or df_result.empty:
+                        print(f"  ⚠️ 方案{i}失败或返回空,尝试下一个")
+                        continue
+                    print(f"  ✅ 新版接口成功！获取到 {len(df_result)} 只股票")
+                    self.raw_data = df_result
+                    print(f"\n获取到的数据字段:")
+                    for col in list(df_result.columns)[:15]:
+                        print(f"  - {col}")
+                    if len(df_result.columns) > 15:
+                        print(f"  ... 还有 {len(df_result.columns) - 15} 个字段")
+                    return True, df_result, f"成功获取{len(df_result)}只股票数据(新版OpenAPI)"
+                print(f"  ⚠️ 新版 OpenAPI 所有方案均失败,降级到 pywencai")
+            else:
+                print(f"\nℹ️ 未配置 IWENCAI_API_KEY,跳过新版OpenAPI,直接用 pywencai")
+                print(f"   (新接口更稳定,建议申请: https://www.iwencai.com/skillhub)")
+
+            # ═══ 降级使用 pywencai (老接口,2026-01 起官方已废弃 get-robot-data,大概率失败) ═══
             for i, query in enumerate(queries, 1):
                 print(f"\n尝试方案 {i}/{len(queries)}...")
                 print(f"查询语句: {query[:100]}...")
                 
                 try:
-                    result = pywencai.get(query=query, loop=True)
+                    result, err = _pywencai_with_timeout(query, timeout_sec=45)
+                    if err is not None:
+                        print(f"  ⚠️ 方案{i}异常/超时: {err}，尝试下一个方案")
+                        continue
                     
                     if result is None:
                         print(f"  ⚠️ 方案{i}返回None，尝试下一个方案")

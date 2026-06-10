@@ -1,5 +1,5 @@
 """
-智瞰龙虎AI分析师集群
+智囊团游资龙虎榜AI分析师集群
 专注于龙虎榜数据的多维度分析
 """
 
@@ -24,7 +24,7 @@ class LonghubangAgents:
     def __init__(self, model=None):
         self.model = model or config.DEFAULT_MODEL_NAME
         self.deepseek_client = DeepSeekClient(model=self.model)
-        print(f"[智瞰龙虎] AI分析师系统初始化 (模型: {self.model})")
+        print(f"[智囊团游资龙虎榜] AI分析师系统初始化 (模型: {self.model})")
     
     def youzi_behavior_analyst(self, longhubang_data: str, summary: Dict) -> Dict[str, Any]:
         """
@@ -250,7 +250,7 @@ class LonghubangAgents:
 # 测试函数
 if __name__ == "__main__":
     print("=" * 60)
-    print("测试智瞰龙虎AI分析师系统")
+    print("测试智囊团游资龙虎榜AI分析师系统")
     print("=" * 60)
     
     # 创建模拟数据
@@ -288,4 +288,3 @@ if __name__ == "__main__":
     result = agents.youzi_behavior_analyst(test_data, test_summary)
     print(f"分析师: {result['agent_name']}")
     print(f"分析内容长度: {len(result['analysis'])} 字符")
-

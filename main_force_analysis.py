@@ -12,6 +12,7 @@ from stock_data import StockDataFetcher
 from ai_agents import StockAnalysisAgents
 from deepseek_client import DeepSeekClient
 from technical_pattern_scorer import TechnicalPatternScorer
+from canslim_analyzer import CANSLIMAnalyzer, format_canslim_for_ai
 import time
 import json
 import config
@@ -26,6 +27,7 @@ class MainForceAnalyzer:
         self.agents = StockAnalysisAgents(model=self.model)
         self.deepseek_client = self.agents.deepseek_client
         self.pattern_scorer = TechnicalPatternScorer(period="6mo")
+        self.rps_analyzer = CANSLIMAnalyzer(period="1y")
         self.raw_stocks = None
         self.final_recommendations = []
     
@@ -108,9 +110,17 @@ class MainForceAnalyzer:
             print(f"\n{'='*80}")
             print(f"📐 技术形态评分中...")
             print(f"{'='*80}\n")
-            emit("正在计算技术形态评分", 42)
+            emit("正在计算技术形态评分", 40)
             filtered_data = self.pattern_scorer.score_dataframe(filtered_data)
-            emit("技术形态评分完成", 50)
+            emit("技术形态评分完成", 45)
+
+            # 步骤2.6: RPS相对强度评分
+            print(f"\n{'='*80}")
+            print(f"🌟 RPS相对强度评分中...")
+            print(f"{'='*80}\n")
+            emit("正在计算RPS相对强度评分", 46)
+            filtered_data = self._score_rps_batch(filtered_data)
+            emit("RPS评分完成", 50)
             
             # 保存原始数据
             self.raw_stocks = filtered_data
@@ -124,22 +134,25 @@ class MainForceAnalyzer:
             # 准备整体数据摘要
             overall_summary = self._prepare_overall_summary(filtered_data)
             
-            # 四位分析师整体分析
-            emit("资金流向分析师正在分析", 60)
+            # 五位分析师整体分析
+            emit("资金流向分析师正在分析", 57)
             fund_flow_analysis = self._fund_flow_overall_analysis(filtered_data, overall_summary)
-            emit("行业板块分析师正在分析", 67)
+            emit("行业板块分析师正在分析", 63)
             industry_analysis = self._industry_overall_analysis(filtered_data, overall_summary)
-            emit("财务基本面分析师正在分析", 74)
+            emit("财务基本面分析师正在分析", 69)
             fundamental_analysis = self._fundamental_overall_analysis(filtered_data, overall_summary)
-            emit("技术形态分析师正在分析", 81)
+            emit("技术形态分析师正在分析", 75)
             technical_pattern_analysis = self._technical_pattern_overall_analysis(filtered_data, overall_summary)
-            emit("四位分析师报告生成完成", 88)
+            emit("RPS分析师正在分析", 81)
+            rps_analysis = self._rps_overall_analysis(filtered_data, overall_summary)
+            emit("五位分析师报告生成完成", 88)
             
             # 保存分析报告到对象属性，供UI展示
             self.fund_flow_analysis = fund_flow_analysis
             self.industry_analysis = industry_analysis
             self.fundamental_analysis = fundamental_analysis
             self.technical_pattern_analysis = technical_pattern_analysis
+            self.rps_analysis = rps_analysis
             
             # 步骤4: 综合决策，精选优质标的
             print(f"\n{'='*80}")
@@ -153,6 +166,7 @@ class MainForceAnalyzer:
                 industry_analysis,
                 fundamental_analysis,
                 technical_pattern_analysis,
+                rps_analysis=rps_analysis,
                 final_n=final_n
             )
             
@@ -259,7 +273,6 @@ class MainForceAnalyzer:
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
         print("  ✅ 资金流向整体分析完成")
-        time.sleep(1)
         
         return analysis
     
@@ -313,7 +326,6 @@ class MainForceAnalyzer:
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
         print("  ✅ 行业板块整体分析完成")
-        time.sleep(1)
         
         return analysis
     
@@ -367,8 +379,94 @@ class MainForceAnalyzer:
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
         
         print("  ✅ 财务基本面整体分析完成")
-        time.sleep(1)
         
+        return analysis
+
+    def _score_rps_batch(self, df: pd.DataFrame, top_n: int = 50) -> pd.DataFrame:
+        """批量RPS评分——只对形态评分靠前的 top_n 只做详细计算，其余默认0。"""
+        df = df.copy()
+        df['RPS排名'] = 0.0
+        df['RPS得分'] = 0.0
+        df['CANSLIM综合分'] = 0.0
+
+        # 按形态评分排序，取 top_n 做 RPS 详细计算
+        if '形态评分' in df.columns:
+            top_idx = df.nlargest(top_n, '形态评分').index
+        else:
+            top_idx = df.head(top_n).index
+
+        total = len(top_idx)
+        print(f"  📊 将对形态评分前 {total} 只股票计算 RPS（共 {len(df)} 只）")
+
+        for i, idx in enumerate(top_idx):
+            symbol = df.at[idx, '股票代码'] if '股票代码' in df.columns else ''
+            if isinstance(symbol, str) and '.' in symbol:
+                symbol = symbol.split('.')[0]
+            try:
+                result = self.rps_analyzer.analyze(symbol)
+                df.at[idx, 'RPS排名'] = result.get('rps_rank', 0)
+                df.at[idx, 'CANSLIM综合分'] = result.get('composite_score', 0)
+                l_comp = result.get('components', {}).get('L', {})
+                df.at[idx, 'RPS得分'] = l_comp.get('score', 0)
+            except Exception as e:
+                print(f"    ⚠ {symbol} RPS计算失败: {e}")
+            if (i + 1) % 10 == 0 or (i + 1) == total:
+                print(f"    进度: {i+1}/{total}")
+
+        print(f"  ✅ RPS评分完成，{total} 只股票已评分")
+        return df
+
+    def _rps_overall_analysis(self, df: pd.DataFrame, summary: str) -> str:
+        """RPS/CANSLIM 整体分析"""
+
+        print("🌟 RPS分析师整体分析中...")
+
+        # 准备RPS数据表格
+        data_table = self._prepare_data_table(df, focus='rps')
+
+        prompt = f"""
+你是一名精通威廉·欧奈尔（William O'Neil）CANSLIM选股法则的成长股投资专家。
+现在需要你从 RPS相对强度排名和CANSLIM综合评分的角度分析这批主力资金流入的股票。
+
+【整体数据摘要】
+{summary}
+
+【候选股票RPS数据】（共{len(df)}只）
+{data_table}
+
+【分析任务】
+请从 RPS/CANSLIM 维度进行分析，重点关注：
+
+1. **领涨股筛选**
+   - 哪些股票RPS排名>=80，属于真正的市场领涨股？
+   - RPS高且主力资金持续流入的股票（资金+动量双确认）
+   - RPS正在加速的潜力股
+
+2. **CANSLIM维度评伌**
+   - CANSLIM综合分较高的股票，哪些组件最突出？
+   - 盈利加速（C组件）+ 技术突破（N组件）并存的股票
+   - 哪些股票最接近CANSLIM经典买点标准？
+
+3. **风险识别**
+   - RPS高但涨幅已大的，是否有追高风险？
+   - RPS低的股票虽然资金流入，但不符合CANSLIM标准的原因
+
+4. **RPS维度推荐**
+   - 从RPS/CANSLIM角度，推荐3-5只最具成长股特征的股票
+   - 每只说明RPS排名、CANSLIM主要亮点、买入时机
+
+请给出专业、简洁的RPS/CANSLIM分析报告。
+"""
+
+        messages = [
+            {"role": "system", "content": "你是欧奈尔CANSLIM选股专家，擅长通过RPS相对强度排名筛选领涨股和成长股。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
+
+        print("  ✅ RPS整体分析完成")
+
         return analysis
 
     def _technical_pattern_overall_analysis(self, df: pd.DataFrame, summary: str) -> str:
@@ -418,7 +516,6 @@ class MainForceAnalyzer:
         analysis = self.deepseek_client.call_api(messages, max_tokens=4000)
 
         print("  ✅ 技术形态整体分析完成")
-        time.sleep(1)
 
         return analysis
     
@@ -462,6 +559,10 @@ class MainForceAnalyzer:
         if focus in ('technical', 'all'):
             pattern_cols = [col for col in ['形态评分', '形态等级', '形态标签'] if col in df.columns]
             key_columns.extend(pattern_cols)
+
+        if focus in ('rps', 'all'):
+            rps_cols = [col for col in ['RPS排名', 'RPS得分', 'CANSLIM综合分'] if col in df.columns]
+            key_columns.extend(rps_cols)
         
         # 去重并保持顺序
         seen = set()
@@ -487,14 +588,15 @@ class MainForceAnalyzer:
                            industry_analysis: str,
                            fundamental_analysis: str,
                            technical_pattern_analysis: str,
+                           rps_analysis: str = "",
                            final_n: int = 5) -> List[Dict]:
-        """综合四位分析师的意见，精选最优标的"""
+        """综合五位分析师的意见，精选最优标的"""
         
         # 准备完整数据表格
         data_table = self._prepare_data_table(df, focus='all')
         
         prompt = f"""
-你是一名资深股票研究员，具有20年以上的投资研究经验。现在需要你综合四位分析师的意见，
+你是一名资深股票研究员，具有20年以上的投资研究经验。现在需要你综合五位分析师的意见，
 从{len(df)}只候选股票中精选出{final_n}只最具投资价值的优质标的。
 
 【候选股票数据】
@@ -512,20 +614,24 @@ class MainForceAnalyzer:
 【技术形态分析师观点】
 {technical_pattern_analysis}
 
+【RPS/CANSLIM分析师观点】
+{rps_analysis}
+
 【筛选标准】
 1. **主力资金**: 主力资金净流入较多，显示机构看好
 2. **涨幅适中**: 区间涨跌幅不是很高（避免追高），还有上涨空间
 3. **行业热点**: 所属行业有发展前景，是市场热点
 4. **基本面良好**: 财务指标健康，盈利能力强
 5. **技术形态**: 均线、突破、量能、MACD等形态条件较好
-6. **综合平衡**: 资金、行业、基本面、形态四方面都不错
+6. **RPS领涨**: RPS排名靠前(>=70)，是市场领涨股，符合CANSLIM成长股特征
+7. **综合平衡**: 资金、行业、基本面、形态、RPS五方面综合突出
 
 【任务要求】
-综合四位分析师的观点，精选出{final_n}只最优标的。
+综合五位分析师的观点，精选出{final_n}只最优标的。
 
 对于每只精选股票，请提供：
 1. **股票代码和名称**
-2. **核心推荐理由**（3-5条，综合资金、行业、基本面、技术形态）
+2. **核心推荐理由**（3-5条，综合资金、行业、基本面、技术形态、RPS）
 3. **投资亮点**（最突出的优势）
 4. **风险提示**（需要注意的风险）
 5. **建议仓位**（如20-30%）
@@ -553,6 +659,7 @@ class MainForceAnalyzer:
         "industry": 0,
         "fundamental": 0,
         "technical_pattern": 0,
+        "rps": 0,
         "overall": 0
       }}
     }}
@@ -564,7 +671,8 @@ class MainForceAnalyzer:
 - 必须严格按照JSON格式输出
 - 推荐数量为{final_n}只
 - 按投资价值从高到低排序
-- 理由要具体、有说服力，体现四位分析师的综合观点
+- 理由要具体、有说服力，体现五位分析师的综合观点
+- RPS排名>=80的股票应优先考虑（领涨股特征）
 """
         
         try:
@@ -658,7 +766,8 @@ class MainForceAnalyzer:
         fund_flow = safe_score(raw_scores.get('fund_flow'), self._infer_fund_score(stock_data))
         industry = safe_score(raw_scores.get('industry'), 75)
         fundamental = safe_score(raw_scores.get('fundamental'), self._infer_fundamental_score(stock_data))
-        overall_default = round(fund_flow * 0.3 + industry * 0.2 + fundamental * 0.25 + technical * 0.25)
+        rps = safe_score(raw_scores.get('rps'), stock_data.get('RPS得分', 50))
+        overall_default = round(fund_flow * 0.25 + industry * 0.15 + fundamental * 0.20 + technical * 0.20 + rps * 0.20)
         overall = safe_score(raw_scores.get('overall'), overall_default)
 
         return {
@@ -666,6 +775,7 @@ class MainForceAnalyzer:
             'industry': industry,
             'fundamental': fundamental,
             'technical_pattern': technical,
+            'rps': rps,
             'overall': overall,
         }
 

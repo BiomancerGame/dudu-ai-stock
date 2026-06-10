@@ -1,18 +1,26 @@
-import os
+"""向后兼容配置层 — 所有值统一来自 core.settings（pydantic-settings）。
+
+下游代码仍可 ``import config; config.DEEPSEEK_API_KEY`` 使用，
+但真正的配置解析、env 文件读取、类型校验由 ``core.settings`` 负责。
+"""
 from dotenv import load_dotenv
 
-# 加载环境变量（override=True 强制覆盖已存在的环境变量）
+# 确保 .env 被加载（pydantic-settings 也会读，但 load_dotenv 优先保证覆盖）
 load_dotenv(override=True)
 
+from core.settings import get_settings as _get_settings
+
+_s = _get_settings()
+
 # DeepSeek API配置
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+DEEPSEEK_API_KEY: str = _s.deepseek.api_key
+DEEPSEEK_BASE_URL: str = _s.deepseek.base_url
 
 # 默认AI模型名称（支持任何OpenAI兼容的模型）
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "deepseek-chat")
+DEFAULT_MODEL_NAME: str = _s.deepseek.default_model
 
 # 其他配置
-TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "")
+TUSHARE_TOKEN: str = _s.tushare.token
 
 # 股票数据源配置
 DEFAULT_PERIOD = "1y"  # 默认获取1年数据
@@ -20,14 +28,14 @@ DEFAULT_INTERVAL = "1d"  # 默认日线数据
 
 # MiniQMT量化交易配置
 MINIQMT_CONFIG = {
-    'enabled': os.getenv("MINIQMT_ENABLED", "false").lower() == "true",
-    'account_id': os.getenv("MINIQMT_ACCOUNT_ID", ""),
-    'host': os.getenv("MINIQMT_HOST", "127.0.0.1"),
-    'port': int(os.getenv("MINIQMT_PORT", "58610")),
+    'enabled': _s.miniqmt.enabled,
+    'account_id': _s.miniqmt.account_id,
+    'host': _s.miniqmt.host,
+    'port': _s.miniqmt.port,
 }
 
 # TDX股票数据API配置项目地址github.com/oficcejo/tdx-api
 TDX_CONFIG = {
-    'enabled': os.getenv("TDX_ENABLED", "false").lower() == "true",
-    'base_url': os.getenv("TDX_BASE_URL", "http://192.168.1.222:8181"),
+    'enabled': _s.tdx.enabled,
+    'base_url': _s.tdx.base_url,
 }

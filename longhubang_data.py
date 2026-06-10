@@ -1,5 +1,5 @@
 """
-智瞰龙虎数据采集模块
+智囊团游资龙虎榜数据采集模块
 使用StockAPI获取龙虎榜数据
 """
 
@@ -22,7 +22,7 @@ class LonghubangDataFetcher:
         Args:
             api_key: StockAPI的API密钥（可选，普通请求每日免费1000次）
         """
-        print("[智瞰龙虎] 龙虎榜数据获取器初始化...")
+        print("[智囊团游资龙虎榜] 龙虎榜数据获取器初始化...")
         # self.base_url = "https://api-lhb.zhongdu.net"
         self.base_url = "http://lhb-api.ws4.cn/v1"
        # self.base_url = "https://www.stockapi.com.cn/v1"
@@ -79,7 +79,7 @@ class LonghubangDataFetcher:
         Returns:
             dict: 龙虎榜数据
         """
-        print(f"[智瞰龙虎] 获取 {date} 的龙虎榜数据...")
+        print(f"[智囊团游资龙虎榜] 获取 {date} 的龙虎榜数据...")
         
         # url = f"{self.base_url}"
         url = f"{self.base_url}/youzi/all"
@@ -105,7 +105,7 @@ class LonghubangDataFetcher:
         Returns:
             list: 龙虎榜数据列表
         """
-        print(f"[智瞰龙虎] 获取 {start_date} 至 {end_date} 的龙虎榜数据...")
+        print(f"[智囊团游资龙虎榜] 获取 {start_date} 至 {end_date} 的龙虎榜数据...")
         
         all_data = []
         
@@ -125,7 +125,7 @@ class LonghubangDataFetcher:
             # 下一天
             current_date += timedelta(days=1)
         
-        print(f"[智瞰龙虎] ✓ 共获取 {len(all_data)} 条记录")
+        print(f"[智囊团游资龙虎榜] ✓ 共获取 {len(all_data)} 条记录")
         return all_data
     
     def get_recent_days_data(self, days=5):
@@ -309,7 +309,7 @@ class LonghubangDataFetcher:
 # 测试函数
 if __name__ == "__main__":
     print("=" * 60)
-    print("测试智瞰龙虎数据采集模块")
+    print("测试智囊团游资龙虎榜数据采集模块")
     print("=" * 60)
     
     fetcher = LonghubangDataFetcher()

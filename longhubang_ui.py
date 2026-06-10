@@ -1,5 +1,5 @@
 """
-智瞰龙虎UI界面模块
+智囊团游资龙虎榜UI界面模块
 展示龙虎榜分析结果和推荐股票
 """
 
@@ -17,11 +17,11 @@ import config
 
 
 def display_longhubang():
-    """显示智瞰龙虎主界面"""
+    """显示智囊团游资龙虎榜主界面"""
     
     st.markdown("""
     <div class="top-nav">
-        <h1 class="nav-title">🎯 智瞰龙虎 - AI驱动的龙虎榜分析</h1>
+        <h1 class="nav-title">🎯 智囊团游资龙虎榜 - AI驱动的龙虎榜分析</h1>
         <p class="nav-subtitle">Multi-Agent Dragon Tiger Analysis | 游资·个股·题材·风险多维分析</p>
     </div>
     """, unsafe_allow_html=True)
@@ -29,11 +29,11 @@ def display_longhubang():
     st.markdown("---")
     
     # 功能说明
-    with st.expander("💡 智瞰龙虎系统介绍", expanded=False):
+    with st.expander("💡 智囊团游资龙虎榜系统介绍", expanded=False):
         st.markdown("""
         ### 🌟 系统特色
         
-        **智瞰龙虎**是基于多AI智能体的龙虎榜深度分析系统，通过5位专业分析师的协同工作，
+        **智囊团游资龙虎榜**是基于多AI智能体的龙虎榜深度分析系统，通过5位专业分析师的协同工作，
         为您挖掘次日大概率上涨的潜力股票。
         
         ### 🤖 AI分析师团队
@@ -739,7 +739,7 @@ def display_pdf_export_section(result):
                     st.download_button(
                         label="📥 下载PDF报告",
                         data=pdf_bytes,
-                        file_name=f"智瞰龙虎报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        file_name=f"智囊团游资龙虎榜报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                         mime="application/pdf",
                         width='stretch'
                     )
@@ -760,7 +760,7 @@ def display_pdf_export_section(result):
                     st.download_button(
                         label="📥 下载Markdown报告",
                         data=markdown_content,
-                        file_name=f"智瞰龙虎报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                        file_name=f"智囊团游资龙虎榜报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
                         mime="text/markdown",
                         width='stretch'
                     )
@@ -778,7 +778,7 @@ def generate_markdown_report(result_data: dict) -> str:
     current_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
     
     # 标题页
-    markdown_content = f"""# 智瞰龙虎榜分析报告
+    markdown_content = f"""# 智囊团游资龙虎榜分析报告
 
 **AI驱动的龙虎榜多维度分析系统**
 
@@ -892,7 +892,7 @@ def generate_markdown_report(result_data: dict) -> str:
     markdown_content += """
 ---
 
-*报告由智瞰龙虎AI系统自动生成*
+*报告由智囊团游资龙虎榜AI系统自动生成*
 """
     
     return markdown_content
@@ -1573,7 +1573,7 @@ def add_to_monitor_from_longhubang(code: str, name: str, final_decision: dict):
                 parts = entry_range.split("-")
                 entry_min = float(parts[0].strip())
                 entry_max = float(parts[1].strip())
-            except:
+            except Exception:
                 pass
         
         # 解析止盈止损
@@ -1583,7 +1583,7 @@ def add_to_monitor_from_longhubang(code: str, name: str, final_decision: dict):
                 numbers = re.findall(r'\d+\.?\d*', str(take_profit_str))
                 if numbers:
                     take_profit = float(numbers[0])
-            except:
+            except Exception:
                 pass
         
         if stop_loss_str:
@@ -1591,7 +1591,7 @@ def add_to_monitor_from_longhubang(code: str, name: str, final_decision: dict):
                 numbers = re.findall(r'\d+\.?\d*', str(stop_loss_str))
                 if numbers:
                     stop_loss = float(numbers[0])
-            except:
+            except Exception:
                 pass
         
         # 验证必需参数
@@ -1620,7 +1620,7 @@ def add_to_monitor_from_longhubang(code: str, name: str, final_decision: dict):
 # 测试函数
 if __name__ == "__main__":
     st.set_page_config(
-        page_title="智瞰龙虎",
+        page_title="智囊团游资龙虎榜",
         page_icon="🎯",
         layout="wide"
     )

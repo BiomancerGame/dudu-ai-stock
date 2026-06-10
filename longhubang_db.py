@@ -1,4 +1,4 @@
-"""智瞰龙虎数据库模块 — 已迁移到 db.base。
+"""智囊团游资龙虎榜数据库模块 — 已迁移到 db.base。
 
 存储龙虎榜历史数据和 AI 分析报告。
 """
@@ -72,7 +72,7 @@ class LonghubangDatabase:
         self.db_path = db_path
         self.logger = logger
         run_migrations(self.db_path, _MIGRATIONS)
-        logger.info("[智瞰龙虎] 数据库初始化完成")
+        logger.info("[智囊团游资龙虎榜] 数据库初始化完成")
 
     def get_connection(self):
         """兼容旧 API:返回带 WAL pragma 的原生连接。"""
@@ -111,7 +111,7 @@ class LonghubangDatabase:
                     saved += 1
                 except Exception as e:
                     logger.exception("保存记录失败: %s", e)
-        logger.info("[智瞰龙虎] 成功保存 %s 条龙虎榜记录", saved)
+        logger.info("[智囊团游资龙虎榜] 成功保存 %s 条龙虎榜记录", saved)
         return saved
 
     def get_longhubang_data(
@@ -218,7 +218,7 @@ class LonghubangDatabase:
                 ),
             )
             report_id = int(cur.lastrowid)
-        logger.info("[智瞰龙虎] 分析报告已保存 (ID: %s)", report_id)
+        logger.info("[智囊团游资龙虎榜] 分析报告已保存 (ID: %s)", report_id)
         return report_id
 
     def get_analysis_reports(self, limit: int = 10) -> pd.DataFrame:
@@ -264,12 +264,12 @@ class LonghubangDatabase:
                 )
                 deleted = cur.rowcount
             if deleted > 0:
-                logger.info("[智瞰龙虎] 成功删除分析报告 (ID: %s)", report_id)
+                logger.info("[智囊团游资龙虎榜] 成功删除分析报告 (ID: %s)", report_id)
                 return True
-            logger.warning("[智瞰龙虎] 未找到要删除的分析报告 (ID: %s)", report_id)
+            logger.warning("[智囊团游资龙虎榜] 未找到要删除的分析报告 (ID: %s)", report_id)
             return False
         except Exception as e:
-            logger.error("[智瞰龙虎] 删除分析报告失败: %s", e)
+            logger.error("[智囊团游资龙虎榜] 删除分析报告失败: %s", e)
             return False
 
     def update_stock_tracking(

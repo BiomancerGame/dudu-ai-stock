@@ -251,7 +251,7 @@ class SectorStrategyDataFetcher:
                     limit_down = len(df_stat[df_stat['涨跌幅'] <= -9.5])
                     overview["limit_up"] = limit_up
                     overview["limit_down"] = limit_down
-            except:
+            except Exception:
                 pass
             
             # 大盘指数
@@ -288,7 +288,7 @@ class SectorStrategyDataFetcher:
                         "change_pct": df_cyb.iloc[0].get('涨跌幅', 0),
                         "change": df_cyb.iloc[0].get('涨跌额', 0)
                     }
-            except:
+            except Exception:
                 pass
             
             return overview

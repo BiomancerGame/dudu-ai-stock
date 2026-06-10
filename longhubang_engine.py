@@ -1,5 +1,5 @@
 """
-智瞰龙虎综合分析引擎
+智囊团游资龙虎榜综合分析引擎
 整合数据获取、AI分析、结果生成的核心引擎
 """
 
@@ -33,7 +33,7 @@ class LonghubangEngine:
         self.logger = logging.getLogger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-        self.logger.info("[智瞰龙虎] 分析引擎初始化完成")
+        self.logger.info("[智囊团游资龙虎榜] 分析引擎初始化完成")
     
     def run_comprehensive_analysis(self, date=None, days=1) -> Dict[str, Any]:
         """
@@ -47,7 +47,7 @@ class LonghubangEngine:
             完整的分析结果
         """
         self.logger.info("=" * 60)
-        self.logger.info("🚀 智瞰龙虎综合分析系统启动")
+        self.logger.info("🚀 智囊团游资龙虎榜综合分析系统启动")
         self.logger.info("=" * 60)
         
         results = {
@@ -198,7 +198,7 @@ class LonghubangEngine:
             results["success"] = True
             
             self.logger.info("=" * 60)
-            self.logger.info("✓ 智瞰龙虎综合分析完成！")
+            self.logger.info("✓ 智囊团游资龙虎榜综合分析完成！")
             self.logger.info("=" * 60)
             
         except Exception as e:
@@ -253,7 +253,7 @@ class LonghubangEngine:
             最终报告字典
         """
         report = {
-            'title': '智瞰龙虎榜综合分析报告',
+            'title': '智囊团游资龙虎榜综合分析报告',
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'summary': '',
             'data_overview': {
@@ -370,7 +370,7 @@ class LonghubangEngine:
 # 测试函数
 if __name__ == "__main__":
     print("=" * 60)
-    print("测试智瞰龙虎分析引擎")
+    print("测试智囊团游资龙虎榜分析引擎")
     print("=" * 60)
     
     # 创建引擎实例
