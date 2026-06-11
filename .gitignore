@@ -10,6 +10,8 @@
 /.cursor
 /openspec
 TradEnv/
+.tmp/
+dudu-ai-stock/
 
 # ===== Python =====
 __pycache__/
